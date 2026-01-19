@@ -59,6 +59,9 @@ static gboolean got_atoms = FALSE;
 
 static gboolean is_cut = FALSE;
 
+/* Track the files that are currently cut (for visual indication in folder views) */
+static FmPathList* cut_files = NULL;
+
 static inline void check_atoms(void)
 {
     if(!got_atoms)
@@ -80,9 +83,12 @@ static void get_data(GtkClipboard *clip, GtkSelectionData *sel, guint info, gpoi
     GList *l;
     GdkAtom target = gtk_selection_data_get_target(sel);
 
+    g_debug("fm-clipboard: get_data called, info=%u, is_cut=%d, files=%p", info, is_cut, (void*)files);
+
     if(info == KDE_CUT_SEL)
     {
         /* set application/kde-cutselection data */
+        g_debug("fm-clipboard: KDE_CUT_SEL requested, is_cut=%d", is_cut);
         if(is_cut)
             gtk_selection_data_set(sel, target, 8, (guchar*)"1", 2);
         return;
@@ -120,19 +126,26 @@ static void get_data(GtkClipboard *clip, GtkSelectionData *sel, guint info, gpoi
     }
     gtk_selection_data_set(sel, target, 8, (guchar*)uri_list->str, uri_list->len + 1);
     g_string_free(uri_list, TRUE);
-    if(is_cut && info == GNOME_COPIED_FILES)
-    {
-        /* info about is_cut is already on clipboard so reset it */
-        gtk_clipboard_clear(clip);
-        is_cut = FALSE;
-    }
+    /* NOTE: Do NOT call gtk_clipboard_clear() here! The previous code did:
+     *   if(is_cut && info == GNOME_COPIED_FILES) { gtk_clipboard_clear(clip); is_cut = FALSE; }
+     * This was wrong because gtk_clipboard_clear() destroys ALL clipboard contents,
+     * causing subsequent paste requests to fail (clipboard appears empty to other apps).
+     * The is_cut flag is properly reset in clear_data() callback when clipboard is
+     * actually released or overwritten. */
 }
 
 static void clear_data(GtkClipboard* clip, gpointer user_data)
 {
     FmPathList* files = (FmPathList*)user_data;
+    g_debug("fm-clipboard: clear_data called, files=%p, is_cut was %d", (void*)files, is_cut);
     fm_path_list_unref(files);
     is_cut = FALSE;
+    /* Clear the cut files list used for visual indication */
+    if(cut_files)
+    {
+        fm_path_list_unref(cut_files);
+        cut_files = NULL;
+    }
 }
 
 /**
@@ -153,9 +166,27 @@ gboolean fm_clipboard_cut_or_copy_files(GtkWidget* src_widget, FmPathList* files
     GtkClipboard* clip = gtk_clipboard_get_for_display(dpy, GDK_SELECTION_CLIPBOARD);
     gboolean ret;
 
+    g_debug("fm-clipboard: cut_or_copy_files called, _is_cut=%d, files=%p, n_files=%u",
+            _is_cut, (void*)files, fm_path_list_get_length(files));
+
+    /* Clear any previously tracked cut files */
+    if(cut_files)
+    {
+        fm_path_list_unref(cut_files);
+        cut_files = NULL;
+    }
+
     ret = gtk_clipboard_set_with_data(clip, targets, G_N_ELEMENTS(targets),
                                       get_data, clear_data, fm_path_list_ref(files));
     is_cut = _is_cut;
+
+    /* Store cut files for visual indication in folder views */
+    if(_is_cut && ret)
+    {
+        cut_files = fm_path_list_ref(files);
+    }
+
+    g_debug("fm-clipboard: gtk_clipboard_set_with_data returned %d, is_cut now %d", ret, is_cut);
     return ret;
 }
 
@@ -338,4 +369,49 @@ gboolean fm_clipboard_have_files(GtkWidget* dest_widget)
            && gtk_clipboard_wait_is_target_available(clipboard, target_atom[i]))
             return TRUE;
     return FALSE;
+}
+
+/**
+ * fm_clipboard_is_file_cut
+ * @file_path: path of file to check
+ *
+ * Checks if the specified file is currently in the "cut" clipboard.
+ * This is useful for providing visual feedback (like reduced opacity)
+ * for files that are pending a cut-paste operation.
+ *
+ * Returns: %TRUE if the file is in the cut clipboard.
+ *
+ * Since: 1.4.2
+ */
+gboolean fm_clipboard_is_file_cut(FmPath* file_path)
+{
+    GList* l;
+
+    if(!is_cut || !cut_files || !file_path)
+        return FALSE;
+
+    for(l = fm_path_list_peek_head_link(cut_files); l; l = l->next)
+    {
+        FmPath* path = (FmPath*)l->data;
+        if(fm_path_equal(path, file_path))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/**
+ * fm_clipboard_get_cut_files
+ *
+ * Returns the list of files currently in the "cut" clipboard.
+ * The caller should NOT unref the returned list.
+ *
+ * Returns: (transfer none) (nullable): the list of cut files, or %NULL if none.
+ *
+ * Since: 1.4.2
+ */
+FmPathList* fm_clipboard_get_cut_files(void)
+{
+    if(is_cut)
+        return cut_files;
+    return NULL;
 }

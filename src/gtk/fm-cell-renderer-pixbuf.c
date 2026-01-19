@@ -40,6 +40,7 @@
 #include "fm-config.h"
 
 #include "fm-cell-renderer-pixbuf.h"
+#include "fm-clipboard.h"
 
 static void fm_cell_renderer_pixbuf_dispose  (GObject *object);
 
@@ -313,13 +314,38 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
 {
     FmCellRendererPixbuf* render = FM_CELL_RENDERER_PIXBUF(cell);
     FmFileInfo *info = NULL;
+    gboolean file_is_cut = FALSE;
+
+    /* Check if this file is in the cut clipboard */
+    if(render->fi)
+    {
+        FmPath* path = fm_file_info_get_path(render->fi);
+        if(path)
+            file_is_cut = fm_clipboard_is_file_cut(path);
+    }
+
     if(fm_config->shadow_hidden)
     {
         g_object_get(render, "info", &info, NULL); // FIXME: is info certainly FmFileInfo?
         gtk_cell_renderer_set_sensitive(cell, !(info && fm_file_info_is_hidden(info)));
     }
+
 #if GTK_CHECK_VERSION(3, 0, 0)
+    /* Apply reduced opacity for cut files */
+    if(file_is_cut)
+    {
+        cairo_save(cr);
+        cairo_push_group(cr);
+    }
+
     GTK_CELL_RENDERER_CLASS(fm_cell_renderer_pixbuf_parent_class)->render(cell, cr, widget, background_area, cell_area, flags);
+
+    if(file_is_cut)
+    {
+        cairo_pop_group_to_source(cr);
+        cairo_paint_with_alpha(cr, 0.5); /* 50% opacity for cut files */
+        cairo_restore(cr);
+    }
 #else
     /* we don't need to follow state for prelit items */
     if(flags & GTK_CELL_RENDERER_PRELIT)

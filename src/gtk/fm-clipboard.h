@@ -40,6 +40,10 @@ gboolean fm_clipboard_paste_files(GtkWidget* dest_widget, FmPath* dest_dir);
 
 gboolean fm_clipboard_have_files(GtkWidget* dest_widget);
 
+gboolean fm_clipboard_is_file_cut(FmPath* file_path);
+
+FmPathList* fm_clipboard_get_cut_files(void);
+
 G_END_DECLS
 
 #endif /* __FM_CLIPBOARD_H__ */
