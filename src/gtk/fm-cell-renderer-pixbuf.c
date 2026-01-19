@@ -342,9 +342,40 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
 
     if(file_is_cut)
     {
+        GdkPixbuf* pix;
+        int icon_x, icon_y, icon_w, icon_h;
+
         cairo_pop_group_to_source(cr);
         cairo_paint_with_alpha(cr, 0.5); /* 50% opacity for cut files */
         cairo_restore(cr);
+
+        /* Draw diagonal strikethrough lines over the icon for stronger visual indication */
+        g_object_get(render, "pixbuf", &pix, NULL);
+        if(pix)
+        {
+            icon_w = gdk_pixbuf_get_width(pix);
+            icon_h = gdk_pixbuf_get_height(pix);
+            icon_x = cell_area->x + (cell_area->width - icon_w) / 2;
+            icon_y = cell_area->y + (cell_area->height - icon_h) / 2;
+
+            cairo_save(cr);
+            /* Draw red diagonal lines */
+            cairo_set_source_rgba(cr, 0.8, 0.2, 0.2, 0.7); /* Red with some transparency */
+            cairo_set_line_width(cr, 2.0);
+
+            /* Main diagonal from top-left to bottom-right */
+            cairo_move_to(cr, icon_x + 2, icon_y + 2);
+            cairo_line_to(cr, icon_x + icon_w - 2, icon_y + icon_h - 2);
+            cairo_stroke(cr);
+
+            /* Second diagonal from top-right to bottom-left */
+            cairo_move_to(cr, icon_x + icon_w - 2, icon_y + 2);
+            cairo_line_to(cr, icon_x + 2, icon_y + icon_h - 2);
+            cairo_stroke(cr);
+
+            cairo_restore(cr);
+            g_object_unref(pix);
+        }
     }
 #else
     /* we don't need to follow state for prelit items */

@@ -44,6 +44,12 @@ gboolean fm_clipboard_is_file_cut(FmPath* file_path);
 
 FmPathList* fm_clipboard_get_cut_files(void);
 
+typedef void (*FmClipboardChangeCallback)(gpointer user_data);
+
+void fm_clipboard_add_change_callback(FmClipboardChangeCallback callback, gpointer user_data);
+
+void fm_clipboard_remove_change_callback(FmClipboardChangeCallback callback, gpointer user_data);
+
 G_END_DECLS
 
 #endif /* __FM_CLIPBOARD_H__ */

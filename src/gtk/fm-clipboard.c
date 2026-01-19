@@ -62,6 +62,24 @@ static gboolean is_cut = FALSE;
 /* Track the files that are currently cut (for visual indication in folder views) */
 static FmPathList* cut_files = NULL;
 
+/* Callback list for clipboard change notifications */
+typedef struct {
+    FmClipboardChangeCallback callback;
+    gpointer user_data;
+} ClipboardChangeHandler;
+
+static GList* change_handlers = NULL;
+
+static void notify_clipboard_changed(void)
+{
+    GList* l;
+    for(l = change_handlers; l; l = l->next)
+    {
+        ClipboardChangeHandler* handler = (ClipboardChangeHandler*)l->data;
+        handler->callback(handler->user_data);
+    }
+}
+
 static inline void check_atoms(void)
 {
     if(!got_atoms)
@@ -146,6 +164,8 @@ static void clear_data(GtkClipboard* clip, gpointer user_data)
         fm_path_list_unref(cut_files);
         cut_files = NULL;
     }
+    /* Notify views to redraw (cut files no longer cut) */
+    notify_clipboard_changed();
 }
 
 /**
@@ -187,6 +207,10 @@ gboolean fm_clipboard_cut_or_copy_files(GtkWidget* src_widget, FmPathList* files
     }
 
     g_debug("fm-clipboard: gtk_clipboard_set_with_data returned %d, is_cut now %d", ret, is_cut);
+
+    /* Notify views to redraw with cut file indication */
+    notify_clipboard_changed();
+
     return ret;
 }
 
@@ -414,4 +438,46 @@ FmPathList* fm_clipboard_get_cut_files(void)
     if(is_cut)
         return cut_files;
     return NULL;
+}
+
+/**
+ * fm_clipboard_add_change_callback
+ * @callback: function to call when clipboard cut files change
+ * @user_data: data to pass to callback
+ *
+ * Registers a callback to be notified when the clipboard cut files change.
+ * This is useful for views that need to redraw when files are cut.
+ *
+ * Since: 1.4.2
+ */
+void fm_clipboard_add_change_callback(FmClipboardChangeCallback callback, gpointer user_data)
+{
+    ClipboardChangeHandler* handler = g_new(ClipboardChangeHandler, 1);
+    handler->callback = callback;
+    handler->user_data = user_data;
+    change_handlers = g_list_append(change_handlers, handler);
+}
+
+/**
+ * fm_clipboard_remove_change_callback
+ * @callback: the callback function to remove
+ * @user_data: the user_data that was passed to fm_clipboard_add_change_callback
+ *
+ * Removes a previously registered clipboard change callback.
+ *
+ * Since: 1.4.2
+ */
+void fm_clipboard_remove_change_callback(FmClipboardChangeCallback callback, gpointer user_data)
+{
+    GList* l;
+    for(l = change_handlers; l; l = l->next)
+    {
+        ClipboardChangeHandler* handler = (ClipboardChangeHandler*)l->data;
+        if(handler->callback == callback && handler->user_data == user_data)
+        {
+            change_handlers = g_list_delete_link(change_handlers, l);
+            g_free(handler);
+            return;
+        }
+    }
 }
