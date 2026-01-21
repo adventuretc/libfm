@@ -365,34 +365,56 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
             GtkStyleContext *context = gtk_widget_get_style_context(widget);
             if(context)
             {
-                gtk_style_context_get_color(context, GTK_STATE_FLAG_SELECTED, &sel_color);
+                /* Try to get the selection background color, which is usually the blue highlight */
+                gtk_style_context_get_background_color(context, GTK_STATE_FLAG_SELECTED, &sel_color);
+                /* If the color is not blue-ish, fallback to get_color (older GTK themes) */
+                if(sel_color.red < 0.2 && sel_color.green < 0.2 && sel_color.blue < 0.2)
+                {
+                    gtk_style_context_get_color(context, GTK_STATE_FLAG_SELECTED, &sel_color);
+                }
                 sel_color.alpha = 0.7; /* force some transparency for overlay */
             }
 #endif
             cairo_set_source_rgba(cr, sel_color.red, sel_color.green, sel_color.blue, sel_color.alpha);
             cairo_set_line_width(cr, 2.0);
 
-            /* Draw an S-like wave from left to right over the icon */
-            double x0 = icon_x + 2;
-            double y0 = icon_y + icon_h * 0.5;
-            double x1 = icon_x + icon_w - 2;
-            double y1 = icon_y + icon_h * 0.5;
-            double mid_x = (x0 + x1) / 2.0;
-            double mid_y1 = icon_y + icon_h * 0.05;
-            double mid_y2 = icon_y + icon_h * 0.95;
+            /* 50% chance: draw alternative curve, otherwise draw S-like wave */
+            if(g_random_boolean())
+            {
+                /* Alternative curve: normalized coordinates, scale to icon size */
+                cairo_save(cr);
+                cairo_translate(cr, icon_x, icon_y);
+                cairo_scale(cr, icon_w, icon_h);
+                cairo_set_line_width(cr, 0.04);
+                cairo_move_to(cr, 0.1, 0.5);
+                cairo_curve_to(cr, 0.4, 0.9, 0.6, 0.1, 0.9, 0.5);
+                cairo_stroke(cr);
+                cairo_restore(cr);
+            }
+            else
+            {
+                /* Draw an S-like wave from left to right over the icon */
+                double x0 = icon_x + 2;
+                double y0 = icon_y + icon_h * 0.5;
+                double x1 = icon_x + icon_w - 2;
+                double y1 = icon_y + icon_h * 0.5;
+                double mid_x = (x0 + x1) / 2.0;
+                double mid_y1 = icon_y + icon_h * 0.05;
+                double mid_y2 = icon_y + icon_h * 0.95;
 
-            cairo_move_to(cr, x0, y0);
-            /* First curve: up */
-            cairo_curve_to(cr,
-                (x0 + mid_x) / 2.0, mid_y1,
-                (x0 + mid_x) / 2.0, mid_y2,
-                mid_x, (y0 + y1) / 2.0);
-            /* Second curve: down */
-            cairo_curve_to(cr,
-                (mid_x + x1) / 2.0, mid_y2,
-                (mid_x + x1) / 2.0, mid_y1,
-                x1, y1);
-            cairo_stroke(cr);
+                cairo_move_to(cr, x0, y0);
+                /* First curve: up */
+                cairo_curve_to(cr,
+                    (x0 + mid_x) / 2.0, mid_y1,
+                    (x0 + mid_x) / 2.0, mid_y2,
+                    mid_x, (y0 + y1) / 2.0);
+                /* Second curve: down */
+                cairo_curve_to(cr,
+                    (mid_x + x1) / 2.0, mid_y2,
+                    (mid_x + x1) / 2.0, mid_y1,
+                    x1, y1);
+                cairo_stroke(cr);
+            }
 
             cairo_restore(cr);
             g_object_unref(pix);
