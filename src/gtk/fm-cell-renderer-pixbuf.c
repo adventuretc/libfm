@@ -349,7 +349,7 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
         cairo_paint_with_alpha(cr, 0.5); /* 50% opacity for cut files */
         cairo_restore(cr);
 
-        /* Draw diagonal strikethrough lines over the icon for stronger visual indication */
+        /* Draw a curved S-like (wave) line over the icon using the GTK selection color */
         g_object_get(render, "pixbuf", &pix, NULL);
         if(pix)
         {
@@ -359,18 +359,39 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
             icon_y = cell_area->y + (cell_area->height - icon_h) / 2;
 
             cairo_save(cr);
-            /* Draw red diagonal lines */
-            cairo_set_source_rgba(cr, 0.8, 0.2, 0.2, 0.7); /* Red with some transparency */
+            /* Get the GTK selection color (fg for selected state) */
+            GdkRGBA sel_color = {0.2, 0.4, 0.8, 0.7}; /* fallback: blue-ish, semi-transparent */
+#if GTK_CHECK_VERSION(3, 0, 0)
+            GtkStyleContext *context = gtk_widget_get_style_context(widget);
+            if(context)
+            {
+                gtk_style_context_get_color(context, GTK_STATE_FLAG_SELECTED, &sel_color);
+                sel_color.alpha = 0.7; /* force some transparency for overlay */
+            }
+#endif
+            cairo_set_source_rgba(cr, sel_color.red, sel_color.green, sel_color.blue, sel_color.alpha);
             cairo_set_line_width(cr, 2.0);
 
-            /* Main diagonal from top-left to bottom-right */
-            cairo_move_to(cr, icon_x + 2, icon_y + 2);
-            cairo_line_to(cr, icon_x + icon_w - 2, icon_y + icon_h - 2);
-            cairo_stroke(cr);
+            /* Draw an S-like wave from left to right over the icon */
+            double x0 = icon_x + 2;
+            double y0 = icon_y + icon_h * 0.25;
+            double x1 = icon_x + icon_w - 2;
+            double y1 = icon_y + icon_h * 0.75;
+            double mid_x = (x0 + x1) / 2.0;
+            double mid_y1 = icon_y + icon_h * 0.05;
+            double mid_y2 = icon_y + icon_h * 0.95;
 
-            /* Second diagonal from top-right to bottom-left */
-            cairo_move_to(cr, icon_x + icon_w - 2, icon_y + 2);
-            cairo_line_to(cr, icon_x + 2, icon_y + icon_h - 2);
+            cairo_move_to(cr, x0, y0);
+            /* First curve: up */
+            cairo_curve_to(cr,
+                (x0 + mid_x) / 2.0, mid_y1,
+                (x0 + mid_x) / 2.0, mid_y2,
+                mid_x, (y0 + y1) / 2.0);
+            /* Second curve: down */
+            cairo_curve_to(cr,
+                (mid_x + x1) / 2.0, mid_y2,
+                (mid_x + x1) / 2.0, mid_y1,
+                x1, y1);
             cairo_stroke(cr);
 
             cairo_restore(cr);
