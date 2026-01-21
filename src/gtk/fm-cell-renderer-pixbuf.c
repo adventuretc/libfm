@@ -374,9 +374,9 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
 
             /* Draw an S-like wave from left to right over the icon */
             double x0 = icon_x + 2;
-            double y0 = icon_y + icon_h * 0.25;
+            double y0 = icon_y + icon_h * 0.5;
             double x1 = icon_x + icon_w - 2;
-            double y1 = icon_y + icon_h * 0.75;
+            double y1 = icon_y + icon_h * 0.5;
             double mid_x = (x0 + x1) / 2.0;
             double mid_y1 = icon_y + icon_h * 0.05;
             double mid_y2 = icon_y + icon_h * 0.95;
