@@ -438,8 +438,10 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
 
         cairo_pop_group_to_source(cr);
         /* Green tint overlay, HSLA(120, 100%, 40%, 0.6) */
-        cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 0.6);
-        cairo_paint(cr);
+        //         cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 0.6);
+        //         cairo_paint(cr); -> this combo did not work well, completely hid the icon image.
+        cairo_set_source_rgba(cr, 0.2, 0.8, 0.2);
+        cairo_paint_with_alpha(cr, 0.6);
         cairo_restore(cr);
 
         /* Draw a green plus sign to the right of the icon */
