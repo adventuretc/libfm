@@ -58,9 +58,12 @@ static GdkAtom target_atom[N_CLIPBOARD_TARGETS];
 static gboolean got_atoms = FALSE;
 
 static gboolean is_cut = FALSE;
+static gboolean is_copy = FALSE;
 
 /* Track the files that are currently cut (for visual indication in folder views) */
 static FmPathList* cut_files = NULL;
+/* Track the files that are currently copied (for visual indication in folder views) */
+static FmPathList* copied_files = NULL;
 
 /* Callback list for clipboard change notifications */
 typedef struct {
@@ -158,13 +161,19 @@ static void clear_data(GtkClipboard* clip, gpointer user_data)
     g_debug("fm-clipboard: clear_data called, files=%p, is_cut was %d", (void*)files, is_cut);
     fm_path_list_unref(files);
     is_cut = FALSE;
-    /* Clear the cut files list used for visual indication */
+    is_copy = FALSE;
+    /* Clear the cut/copied files list used for visual indication */
     if(cut_files)
     {
         fm_path_list_unref(cut_files);
         cut_files = NULL;
     }
-    /* Notify views to redraw (cut files no longer cut) */
+    if(copied_files)
+    {
+        fm_path_list_unref(copied_files);
+        copied_files = NULL;
+    }
+    /* Notify views to redraw (cut/copied files no longer marked) */
     notify_clipboard_changed();
 }
 
@@ -189,21 +198,31 @@ gboolean fm_clipboard_cut_or_copy_files(GtkWidget* src_widget, FmPathList* files
     g_debug("fm-clipboard: cut_or_copy_files called, _is_cut=%d, files=%p, n_files=%u",
             _is_cut, (void*)files, fm_path_list_get_length(files));
 
-    /* Clear any previously tracked cut files */
+    /* Clear any previously tracked cut/copied files */
     if(cut_files)
     {
         fm_path_list_unref(cut_files);
         cut_files = NULL;
     }
+    if(copied_files)
+    {
+        fm_path_list_unref(copied_files);
+        copied_files = NULL;
+    }
 
     ret = gtk_clipboard_set_with_data(clip, targets, G_N_ELEMENTS(targets),
                                       get_data, clear_data, fm_path_list_ref(files));
     is_cut = _is_cut;
+    is_copy = !_is_cut;
 
-    /* Store cut files for visual indication in folder views */
+    /* Store cut/copied files for visual indication in folder views */
     if(_is_cut && ret)
     {
         cut_files = fm_path_list_ref(files);
+    }
+    else if(!_is_cut && ret)
+    {
+        copied_files = fm_path_list_ref(files);
     }
 
     g_debug("fm-clipboard: gtk_clipboard_set_with_data returned %d, is_cut now %d", ret, is_cut);
@@ -424,6 +443,34 @@ gboolean fm_clipboard_is_file_cut(FmPath* file_path)
 }
 
 /**
+ * fm_clipboard_is_file_copied
+ * @file_path: path of file to check
+ *
+ * Checks if the specified file is currently in the "copied" clipboard.
+ * This is useful for providing visual feedback (like green tint)
+ * for files that are pending a copy-paste operation.
+ *
+ * Returns: %TRUE if the file is in the copied clipboard.
+ *
+ * Since: 1.4.2
+ */
+gboolean fm_clipboard_is_file_copied(FmPath* file_path)
+{
+    GList* l;
+
+    if(!is_copy || !copied_files || !file_path)
+        return FALSE;
+
+    for(l = fm_path_list_peek_head_link(copied_files); l; l = l->next)
+    {
+        FmPath* path = (FmPath*)l->data;
+        if(fm_path_equal(path, file_path))
+            return TRUE;
+    }
+    return FALSE;
+}
+
+/**
  * fm_clipboard_get_cut_files
  *
  * Returns the list of files currently in the "cut" clipboard.
@@ -437,6 +484,23 @@ FmPathList* fm_clipboard_get_cut_files(void)
 {
     if(is_cut)
         return cut_files;
+    return NULL;
+}
+
+/**
+ * fm_clipboard_get_copied_files
+ *
+ * Returns the list of files currently in the "copied" clipboard.
+ * The caller should NOT unref the returned list.
+ *
+ * Returns: (transfer none) (nullable): the list of copied files, or %NULL if none.
+ *
+ * Since: 1.4.2
+ */
+FmPathList* fm_clipboard_get_copied_files(void)
+{
+    if(is_copy)
+        return copied_files;
     return NULL;
 }
 

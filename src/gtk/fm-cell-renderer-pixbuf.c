@@ -41,6 +41,8 @@
 
 #include "fm-cell-renderer-pixbuf.h"
 #include "fm-clipboard.h"
+// For drawing the green plus sign
+#include <math.h>
 
 static void fm_cell_renderer_pixbuf_dispose  (GObject *object);
 
@@ -315,6 +317,7 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
     FmCellRendererPixbuf* render = FM_CELL_RENDERER_PIXBUF(cell);
     FmFileInfo *info = NULL;
     gboolean file_is_cut = FALSE;
+    gboolean file_is_copied = FALSE;
 
     /* Check if this file is in the cut clipboard */
     if(render->fi)
@@ -322,6 +325,8 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
         FmPath* path = fm_file_info_get_path(render->fi);
         if(path)
             file_is_cut = fm_clipboard_is_file_cut(path);
+        if(path)
+            file_is_copied = fm_clipboard_is_file_copied(path);
     }
 
     if(fm_config->shadow_hidden)
@@ -333,6 +338,12 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
 #if GTK_CHECK_VERSION(3, 0, 0)
     /* Apply reduced opacity for cut files */
     if(file_is_cut)
+    {
+        cairo_save(cr);
+        cairo_push_group(cr);
+    }
+    /* Apply green tint for copied files */
+    if(file_is_copied)
     {
         cairo_save(cr);
         cairo_push_group(cr);
@@ -416,6 +427,44 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
                 cairo_stroke(cr);
             }
 
+            cairo_restore(cr);
+            g_object_unref(pix);
+        }
+    }
+    if(file_is_copied)
+    {
+        GdkPixbuf* pix;
+        int icon_x, icon_y, icon_w, icon_h;
+
+        cairo_pop_group_to_source(cr);
+        /* Green tint overlay, HSLA(120, 100%, 40%, 0.6) */
+        cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 0.6);
+        cairo_paint(cr);
+        cairo_restore(cr);
+
+        /* Draw a green plus sign to the right of the icon */
+        g_object_get(render, "pixbuf", &pix, NULL);
+        if(pix)
+        {
+            icon_w = gdk_pixbuf_get_width(pix);
+            icon_h = gdk_pixbuf_get_height(pix);
+            icon_x = cell_area->x + (cell_area->width - icon_w) / 2;
+            icon_y = cell_area->y + (cell_area->height - icon_h) / 2;
+
+            cairo_save(cr);
+            /* Draw plus sign: right of icon, vertically centered */
+            double plus_size = icon_h * 0.6;
+            double plus_x = icon_x + icon_w + 6;
+            double plus_y = icon_y + icon_h / 2.0;
+            cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 1.0); /* solid green */
+            cairo_set_line_width(cr, 2.0);
+            /* Vertical line */
+            cairo_move_to(cr, plus_x, plus_y - plus_size/2);
+            cairo_line_to(cr, plus_x, plus_y + plus_size/2);
+            /* Horizontal line */
+            cairo_move_to(cr, plus_x - plus_size/2, plus_y);
+            cairo_line_to(cr, plus_x + plus_size/2, plus_y);
+            cairo_stroke(cr);
             cairo_restore(cr);
             g_object_unref(pix);
         }
