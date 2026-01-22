@@ -42,6 +42,8 @@ gboolean fm_clipboard_have_files(GtkWidget* dest_widget);
 
 gboolean fm_clipboard_is_file_cut(FmPath* file_path);
 
+gboolean fm_clipboard_is_file_copied(FmPath* file_path);
+
 FmPathList* fm_clipboard_get_cut_files(void);
 
 typedef void (*FmClipboardChangeCallback)(gpointer user_data);
