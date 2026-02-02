@@ -355,7 +355,7 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
         int icon_x, icon_y, icon_w, icon_h;
 
         cairo_pop_group_to_source(cr);
-        cairo_paint_with_alpha(cr, 0.5); /* 50% opacity for cut files */
+        cairo_paint_with_alpha(cr, 0.4); /* 40% opacity for cut files */
         cairo_restore(cr);
     }
     if(file_is_copied)
