@@ -433,42 +433,28 @@ static void fm_cell_renderer_pixbuf_render     (GtkCellRenderer            *cell
     }
     if(file_is_copied)
     {
-        GdkPixbuf* pix;
-        int icon_x, icon_y, icon_w, icon_h;
+        /*
+         * Paint the original icon, then overlay a uniform green tint using the icon alpha as mask.
+         * This avoids clearing the icon and keeps color consistent across all view modes.
+         */
+        cairo_pattern_t* mask = NULL;
 
+        /* The pushed group contains the rendered icon; keep a reference to reuse as mask. */
         cairo_pop_group_to_source(cr);
-        // Set operator so only non-transparent pixels are affected
-        cairo_set_operator(cr, CAIRO_OPERATOR_IN);
-        cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 0.6);
+        mask = cairo_pattern_reference(cairo_get_source(cr));
+
+        /* First paint the untouched icon. */
         cairo_paint(cr);
+
+        /* Now overlay green where the icon is opaque. */
+        cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 0.6); /* consistent green tint */
+        cairo_set_operator(cr, CAIRO_OPERATOR_OVER);
+        cairo_mask(cr, mask);
+
+        if(mask)
+            cairo_pattern_destroy(mask);
+
         cairo_restore(cr);
-
-        /* Draw a green plus sign to the right of the icon */
-        g_object_get(render, "pixbuf", &pix, NULL);
-        if(pix)
-        {
-            icon_w = gdk_pixbuf_get_width(pix);
-            icon_h = gdk_pixbuf_get_height(pix);
-            icon_x = cell_area->x + (cell_area->width - icon_w) / 2;
-            icon_y = cell_area->y + (cell_area->height - icon_h) / 2;
-
-            cairo_save(cr);
-            /* Draw plus sign: right of icon, vertically centered */
-            double plus_size = icon_h * 0.6;
-            double plus_x = icon_x + icon_w + 6;
-            double plus_y = icon_y + icon_h / 2.0;
-            cairo_set_source_rgba(cr, 0.2, 0.8, 0.2, 1.0); /* solid green */
-            cairo_set_line_width(cr, 2.0);
-            /* Vertical line */
-            cairo_move_to(cr, plus_x, plus_y - plus_size/2);
-            cairo_line_to(cr, plus_x, plus_y + plus_size/2);
-            /* Horizontal line */
-            cairo_move_to(cr, plus_x - plus_size/2, plus_y);
-            cairo_line_to(cr, plus_x + plus_size/2, plus_y);
-            cairo_stroke(cr);
-            cairo_restore(cr);
-            g_object_unref(pix);
-        }
     }
 #else
     /* we don't need to follow state for prelit items */
