@@ -110,6 +110,8 @@ struct _FmStandardViewClass
     /* void (*column_widths_changed)(); */
 };
 
+const int DEFAULT_NAME_COLUMN_WIDTH_IN_PIXELS = 970;
+
 static void fm_standard_view_dispose(GObject *object);
 
 static void fm_standard_view_view_init(FmFolderViewInterface* iface);
@@ -967,10 +969,12 @@ static GtkTreeViewColumn* create_list_view_column(FmStandardView* fv,
         gtk_tree_view_column_set_min_width(col, 50);
 #endif
         if(set->width <= 0)
-            info->width = 200;
+            info->width = DEFAULT_NAME_COLUMN_WIDTH_IN_PIXELS;
         break;
+        
     case FM_FOLDER_MODEL_COL_SIZE:
         g_object_set(render, "xalign", 1.0, NULL);
+        
     default:
         if(set->width < 0)
             info->width = fm_folder_model_col_get_default_width(fv->model, col_id);
