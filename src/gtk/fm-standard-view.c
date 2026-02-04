@@ -717,11 +717,14 @@ static void on_column_width_changed(GtkTreeViewColumn* col, GParamSpec *pspec,
             view->name_updated = TRUE;
         else if(info->reserved1 && view->updated_col < 0)
             view->updated_col = pos;
+        info->width = width;
         info->reserved1 = width;
     }
     if(pos == g_list_length(cols) - 1) /* got all columns, decide what we got */
     {
-        if(!view->name_updated && view->updated_col >= 0)
+        if(view->name_updated)
+            fm_folder_view_columns_changed(FM_FOLDER_VIEW(view));
+        else if(view->updated_col >= 0)
         {
             col = g_list_nth_data(cols, view->updated_col);
             info = g_object_get_qdata(G_OBJECT(col), fm_qdata_id);
