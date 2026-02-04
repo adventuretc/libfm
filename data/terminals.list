@@ -11,6 +11,10 @@ noclose_arg=-hold -e
 open_arg=-e
 desktop_id=lxterminal.desktop
 
+[tilix]
+open_arg=-e
+desktop_id=tilix.desktop
+
 [konsole]
 open_arg=-e
 noclose_arg=--noclose -e
