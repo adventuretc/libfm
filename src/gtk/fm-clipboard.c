@@ -128,8 +128,10 @@ static void get_data(GtkClipboard *clip, GtkSelectionData *sel, guint info, gpoi
         {
             FmPath* path = (FmPath*)l->data;
             char* str = fm_path_to_str(path);
+            /* Only put \n *between* paths, not after the last one */
+            if(uri_list->len > 0)
+                g_string_append_c(uri_list, '\n');
             g_string_append(uri_list, str);
-            g_string_append_c(uri_list, '\n');
             g_free(str);
         }
     }
