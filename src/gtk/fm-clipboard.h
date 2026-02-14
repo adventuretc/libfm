@@ -52,6 +52,8 @@ void fm_clipboard_add_change_callback(FmClipboardChangeCallback callback, gpoint
 
 void fm_clipboard_remove_change_callback(FmClipboardChangeCallback callback, gpointer user_data);
 
+void fm_clipboard_copy_paths_as_text(GtkWidget* src_widget, FmPathList* files);
+
 G_END_DECLS
 
 #endif /* __FM_CLIPBOARD_H__ */

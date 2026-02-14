@@ -147,7 +147,7 @@ static void get_data(GtkClipboard *clip, GtkSelectionData *sel, guint info, gpoi
                 g_string_append(uri_list, "\r\n");
         }
     }
-    gtk_selection_data_set(sel, target, 8, (guchar*)uri_list->str, uri_list->len + 1);
+    gtk_selection_data_set(sel, target, 8, (guchar*)uri_list->str, uri_list->len); // len + 1 here cause a bug, an unneeded last char (a space).
     g_string_free(uri_list, TRUE);
     /* NOTE: Do NOT call gtk_clipboard_clear() here! The previous code did:
      *   if(is_cut && info == GNOME_COPIED_FILES) { gtk_clipboard_clear(clip); is_cut = FALSE; }
@@ -546,4 +546,35 @@ void fm_clipboard_remove_change_callback(FmClipboardChangeCallback callback, gpo
             return;
         }
     }
+}
+
+/**
+ * fm_clipboard_copy_paths_as_text
+ * @src_widget: widget to determine the display for clipboard
+ * @files: list of file paths to copy
+ *
+ * Copies file paths as plain text to the system clipboard, using
+ * gtk_clipboard_set_text(). Paths are separated by newlines with
+ * no trailing newline.
+ *
+ * Since: 1.4.2
+ */
+void fm_clipboard_copy_paths_as_text(GtkWidget* src_widget, FmPathList* files)
+{
+    GdkDisplay* dpy = src_widget ? gtk_widget_get_display(src_widget) : gdk_display_get_default();
+    GtkClipboard* clip = gtk_clipboard_get_for_display(dpy, GDK_SELECTION_CLIPBOARD);
+    GString* str = g_string_sized_new(128);
+    GList* l;
+
+    for(l = fm_path_list_peek_head_link(files); l; l = l->next)
+    {
+        char* path = fm_path_to_str((FmPath*)l->data);
+        /* Only put \n *between* paths, not after the last one */
+        if(str->len > 0)
+            g_string_append_c(str, '\n');
+        g_string_append(str, path);
+        g_free(path);
+    }
+    gtk_clipboard_set_text(clip, str->str, str->len);
+    g_string_free(str, TRUE);
 }
