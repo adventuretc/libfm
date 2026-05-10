@@ -315,18 +315,9 @@ gboolean fm_clipboard_paste_files(GtkWidget* dest_widget, FmPath* dest_dir)
                 break;
             }
         }
-        if( 0 == type ) /* text/uri-list is not found. */
-        {
-            /* finally, fallback to UTF-8 string */
-            for(i = 0; i < n; ++i)
-            {
-                if(avail_targets[i] == target_atom[UTF8_STRING])
-                {
-                    type = UTF8_STRING;
-                    break;
-                }
-            }
-        }
+        /* UTF8_STRING is intentionally not used as a fallback: plain text
+         * copied by text editors looks identical to file paths and must not
+         * be treated as a file paste operation. */
     }
     g_free(avail_targets);
 
@@ -357,12 +348,7 @@ gboolean fm_clipboard_paste_files(GtkWidget* dest_widget, FmPath* dest_dir)
             uris = g_uri_list_extract_uris(pdata);
             _is_cut = check_kde_curselection(clip);
             break;
-        case UTF8_STRING:
         default:
-            /* FIXME: how should we treat UTF-8 strings? URIs or filenames? */
-            /* FIXME: this is invalid, UTF8_STRING means this is plain text
-               not file list. We should save text into file instead. */
-            uris = g_uri_list_extract_uris(pdata);
             break;
         }
         gtk_selection_data_free(data);
@@ -406,13 +392,16 @@ gboolean fm_clipboard_have_files(GtkWidget* dest_widget)
 {
     GdkDisplay* dpy = dest_widget ? gtk_widget_get_display(dest_widget) : gdk_display_get_default();
     GtkClipboard* clipboard = gtk_clipboard_get_for_display(dpy, GDK_SELECTION_CLIPBOARD);
-    guint i;
 
     check_atoms();
-    for(i = 1; i < N_CLIPBOARD_TARGETS; i++)
-        if(target_atom[i] != GDK_NONE
-           && gtk_clipboard_wait_is_target_available(clipboard, target_atom[i]))
-            return TRUE;
+    /* Only real file clipboard formats count — not plain UTF8_STRING text,
+     * which text editors also put on the clipboard when copying file paths. */
+    if(target_atom[GNOME_COPIED_FILES] != GDK_NONE
+       && gtk_clipboard_wait_is_target_available(clipboard, target_atom[GNOME_COPIED_FILES]))
+        return TRUE;
+    if(target_atom[URI_LIST] != GDK_NONE
+       && gtk_clipboard_wait_is_target_available(clipboard, target_atom[URI_LIST]))
+        return TRUE;
     return FALSE;
 }
 

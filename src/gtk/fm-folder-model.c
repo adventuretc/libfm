@@ -1018,7 +1018,30 @@ static gint fm_folder_model_compare(gconstpointer item1,
     /* put folders before files */
     if(!(model->sort_mode & FM_SORT_NO_FOLDER_FIRST))
     {
-        ret = fm_file_info_is_dir(file2) - fm_file_info_is_dir(file1);
+        gboolean f1_is_folder = fm_file_info_is_dir(file1);
+        gboolean f2_is_folder = fm_file_info_is_dir(file2);
+        /* .desktop files with Icon=folder are mingled with real folders, not files like in most file managers. */
+        if(!f1_is_folder && fm_file_info_is_desktop_entry(file1))
+        {
+            FmIcon* icon = fm_file_info_get_icon(file1);
+            if(icon && G_IS_THEMED_ICON(icon))
+            {
+                const gchar* const* names = g_themed_icon_get_names(G_THEMED_ICON(icon));
+                if(names && names[0] && strcmp(names[0], "folder") == 0)
+                    f1_is_folder = TRUE;
+            }
+        }
+        if(!f2_is_folder && fm_file_info_is_desktop_entry(file2))
+        {
+            FmIcon* icon = fm_file_info_get_icon(file2);
+            if(icon && G_IS_THEMED_ICON(icon))
+            {
+                const gchar* const* names = g_themed_icon_get_names(G_THEMED_ICON(icon));
+                if(names && names[0] && strcmp(names[0], "folder") == 0)
+                    f2_is_folder = TRUE;
+            }
+        }
+        ret = (int)f2_is_folder - (int)f1_is_folder;
         if( ret )
             return ret;
     }
